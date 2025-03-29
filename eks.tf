@@ -1,41 +1,47 @@
 module "eks" {
-    source  = "terraform-aws-modules/eks/aws"
-    version = "~> 20.31"
+  source  = "terraform-aws-modules/eks/aws"
+  version = "~> 20.31"
 
-    cluster_name    = var.cluster_name
-    cluster_version = "1.31"
+  cluster_name    = var.cluster_name
+  cluster_version = "1.31"
 
-    cluster_endpoint_public_access = true
+  bootstrap_self_managed_addons = false
+  cluster_addons = {
+    coredns                = {}
+    eks-pod-identity-agent = {}
+    kube-proxy             = {}
+    vpc-cni                = {}
+  }
 
-    enable_cluster_creator_admin_permissions = true
+  cluster_endpoint_public_access = true
 
-    cluster_compute_config = {
-        enabled = true
-        node_pools = ["general-purpose"]
+  enable_cluster_creator_admin_permissions = true
+
+
+  vpc_id = aws_vpc.vpc.id
+  subnet_ids = concat(
+    values(aws_subnet.public_subnets)[*].id,
+    values(aws_subnet.private_subnets)[*].id
+  )
+
+  cluster_compute_config = {
+enabled = true
+node_pools = ["general-purpose"]
+}
+
+  eks_managed_node_groups = {
+    example = {
+      # Starting on 1.30, AL2023 is the default AMI type for EKS managed node groups
+      ami_type       = "AL2_x86_64"
+      instance_types = ["t3.medium"]
+      min_size       = 1
+      max_size       = 1
+      desired_size   = 1
     }
+  }
 
-    eks_managed_node_groups = {
-        ng1 = {
-            launch_template = "ng1"
-            version         = 1.31
-            disired_size    = 1
-            max_size        = 1
-            min_size        = 1
-            instance_types  = ["t2.small"]
-            k8s_labels = {}
-
-        }
-    }
-
-    vpc_id = aws_vpc.vpc.id
-    subnet_ids = [
-        aws_subnet.private_subnets["private-subnet-1"].id,
-        aws_subnet.private_subnets["private-subnet-2"].id,
-    ]
-
-    tags = {
+  tags = {
     Environment = "dev"
     Terraform   = "true"
   }
-
 }
